@@ -26,6 +26,7 @@ export default function Home() {
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
+    setEditingTrade(undefined);
   }, []);
 
   const editTrade = (trade: ITrade): void => {
@@ -39,7 +40,7 @@ export default function Home() {
         <h1 className="text-3xl font-bold mb-6">Option Trade Tracker</h1>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4 flex items-center"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4 flex items-center"
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -64,20 +65,20 @@ export default function Home() {
         />
         {isModalOpen && (
           <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"
+            className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full"
             onClick={closeModal}
           >
             <div
-              className="relative top-20 mx-auto p-5 border w-96 md:w-[32rem] shadow-lg rounded-md bg-white"
+              className="relative top-20 mx-auto p-5 border w-96 md:w-[32rem] shadow-lg rounded-md bg-white dark:bg-gray-800"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">
+                <h2 className="text-xl font-bold dark:text-white">
                   {editingTrade ? 'Edit Trade' : 'Add New Trade'}
                 </h2>
                 <button
                   onClick={closeModal}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <svg
                     className="h-6 w-6"

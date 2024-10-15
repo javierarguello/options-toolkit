@@ -15,6 +15,7 @@ import { useForm } from 'react-hook-form';
 import { ControllerRenderProps } from 'react-hook-form';
 import { financeValidateSymbol } from '@/app/services/finance.service';
 import DatePicker from 'react-datepicker';
+import '../styles/datepicker.css';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
   Select,
@@ -25,8 +26,7 @@ import {
 } from '@/components/ui/select';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils'; // Make sure you have this utility function
+import { useTheme } from 'next-themes';
 
 const getNextFriday = (): Date => {
   const today = new Date();
@@ -40,7 +40,9 @@ const DefaultNewTrade = {
   expirationDate: getNextFriday(),
   symbol: '',
   contracts: 1,
-  type: 'call', // Set a default value
+  strike: 0,
+  price: 0,
+  type: 'short-put', // Set a default value
 } as ITrade;
 
 const tradeSchema = z.object({
@@ -51,7 +53,7 @@ const tradeSchema = z.object({
     .number()
     .min(0, 'Exit Price must be 0 or greater')
     .optional()
-    .transform(val => val === 0 ? undefined : val),
+    .transform((val) => (val === 0 ? undefined : val)),
   expirationDate: z.date(),
   stockPrice: z.number().positive('Stock Price must be greater than 0'),
   contracts: z
@@ -98,7 +100,6 @@ export default function AddTradeForm({
     null,
   );
   const [showStrikeSelect, setShowStrikeSelect] = useState(false);
-
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
     defaultValues: existingTrade || DefaultNewTrade,
@@ -253,12 +254,6 @@ export default function AddTradeForm({
     }
   }, [existingTrade]);
 
-  const getDeltaColor = (delta: number, type: TradeType) => {
-    const adjustedDelta = isShort ? 1 - Math.abs(delta) : Math.abs(delta);
-    const hue = adjustedDelta * 120; // 0 (red) to 120 (green)
-    return `hsl(${hue}, 80%, 50%)`; // Adjusted saturation and lightness
-  };
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -332,8 +327,8 @@ export default function AddTradeForm({
                     filterDate={isDateDisabled}
                     dateFormat="MM/dd/yyyy"
                     placeholderText="Select expiration date"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    wrapperClassName="w-full" // Add this line
+                    className={`w-full bg-background rounded-md border border-input px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                    wrapperClassName="w-full"
                   />
                 </FormControl>
               </FormItem>
@@ -350,7 +345,7 @@ export default function AddTradeForm({
                     field.onChange(value);
                     form.setValue('type', value as TradeType);
                   }}
-                  defaultValue={field.value}
+                  defaultValue={form.getValues('type')}
                   disabled={!isSymbolLoaded}
                 >
                   <FormControl>
@@ -402,35 +397,16 @@ export default function AddTradeForm({
                           : 'Select Strike'}
                       </SelectValue>
                     </SelectTrigger>
-                    <SelectContent>
-                      {strikes.map((strike, index) => (
+                    <SelectContent className="bg-white dark:bg-gray-800">
+                      {strikes.map((strike) => (
                         <SelectItem
                           key={strike.strike}
                           value={strike.strike.toString()}
-                          className={cn(
-                            'cursor-pointer transition-colors relative',
-                            'hover:bg-accent hover:text-accent-foreground',
-                          )}
                         >
                           <span>
                             Strike: {strike.strike} - Delta:{' '}
                             {strike.delta.toFixed(4)}
                           </span>
-                          <div
-                            className="absolute top-0 right-0 w-1 h-full"
-                            style={{
-                              backgroundColor: getDeltaColor(
-                                strike.delta,
-                                form.getValues('type'),
-                              ),
-                              clipPath:
-                                index === 0
-                                  ? 'inset(0 0 -1px 0)'
-                                  : index === strikes.length - 1
-                                  ? 'inset(-1px 0 0 0)'
-                                  : 'inset(-1px 0)',
-                            }}
-                          />
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -515,7 +491,10 @@ export default function AddTradeForm({
                     placeholder="Exit Price"
                     {...field}
                     onChange={(e) => {
-                      const value = e.target.value === '' ? undefined : Number(e.target.value);
+                      const value =
+                        e.target.value === ''
+                          ? undefined
+                          : Number(e.target.value);
                       field.onChange(value);
                     }}
                     disabled={!isSymbolLoaded}
@@ -542,7 +521,7 @@ export default function AddTradeForm({
 
         {/* Updated footer section */}
         {selectedOption && (
-          <div className="mt-4 p-4 bg-gray-100 rounded-md">
+          <div className="mt-4 p-4 border border-border rounded-md">
             <p className="text-sm font-medium mb-2">Option Details:</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -555,7 +534,7 @@ export default function AddTradeForm({
               </div>
             </div>
             {/* New row for trade summary */}
-            <div className="mt-2 pt-2 border-t border-gray-300">
+            <div className="mt-2 pt-2 border-t border-border">
               <p className="text-sm font-medium">Trade Summary:</p>
               <p className="text-sm">
                 {isShort ? 'Selling' : 'Buying'} {numberOfContracts}{' '}

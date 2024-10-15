@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { ITrade } from '../models';
 import {
   CheckCircleIcon,
@@ -8,6 +9,9 @@ import {
   TrashIcon,
   ChartBarIcon,
 } from '@heroicons/react/24/solid';
+
+// Add this import for the server function
+import { getYahooFinanceQuotes } from '@/app/services/yahoo.finance.service';
 
 export default function OptionTradeTable({
   trades,
@@ -18,130 +22,192 @@ export default function OptionTradeTable({
   onDeleteTrade: (id: number) => void;
   onEditTrade: (trade: ITrade) => void;
 }) {
+  const [tradeToDelete, setTradeToDelete] = useState<ITrade | null>(null);
+  const [latestPrices, setLatestPrices] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const fetchLatestPrices = async () => {
+      if (trades.length > 0) {
+        const symbols = Array.from(
+          new Set(trades.map((trade) => trade.symbol)),
+        );
+        const quotes = await getYahooFinanceQuotes(symbols);
+        const prices: Record<string, number> = {};
+        quotes.forEach((quote) => {
+          const defaultPrice =
+            trades.find((t) => t.symbol === quote.symbol)?.price ?? 0;
+          prices[quote.symbol] = quote.price ?? defaultPrice;
+        });
+        setLatestPrices(prices);
+      }
+    };
+
+    fetchLatestPrices();
+  }, [trades]);
+
   return (
-    <table className="w-full border-collapse">
-      <thead>
-        <tr>
-          <th className="border p-2">Type</th>
-          <th className="border p-2">Symbol</th>
-          <th className="border p-2">Strike</th>
-          <th className="border p-2">Price</th>
-          <th className="border p-2">Expiration</th>
-          <th className="border p-2">Contracts</th>
-          <th className="border p-2">Credit/Debit</th>
-          <th className="border p-2">Exit Price</th>
-          <th className="border p-2">Profit/Loss</th>
-          <th className="border p-2">Status</th>
-          <th className="border p-2">...</th>
-        </tr>
-      </thead>
-      <tbody>
-        {trades.map((trade: ITrade, index: number) => (
-          <tr
-            key={trade.id}
-            onClick={() => onEditTrade(trade)}
-            className={`cursor-pointer hover:bg-gray-200 transition-colors duration-150 ${
-              index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-            }`}
-          >
-            <td className="border p-2 text-center">
-              {formatTradeType(trade.type)}
-            </td>
-            <td className="border p-2 text-center">{trade.symbol}</td>
-            <td className="border p-2 text-right">
-              {formatCurrency(trade.strike)}
-            </td>
-            <td className="border p-2 text-right">
-              {formatCurrency(trade.price)}
-            </td>
-            <td className="border p-2 text-right">
-              <div className="flex items-center justify-end">
-                <span>{formatDate(trade.expirationDate)}</span>
-                {isExpirationWarning(trade.expirationDate) && (
-                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500 ml-1" />
-                )}
-              </div>
-              <div className="text-xs text-gray-500">
-                {getDaysToExpiration(trade.expirationDate)} days
-              </div>
-            </td>
-            <td className="border p-2 text-right">{trade.contracts}</td>
-            <td className="border p-2 text-right">
-              {formatCreditDebit(
-                trade.price * trade.contracts * 100,
-                trade.type,
-              )}
-            </td>
-            <td className="border p-2 text-right">
-              {trade.exitPrice ? formatCurrency(trade.exitPrice) : ''}
-            </td>
-            <td className="border p-2 text-right">
-              {trade.exitPrice ? (
-                <div className="flex flex-col items-end">
-                  {formatCreditDebit(calculateProfitLoss(trade), trade.type)}
-                  <span
-                    className={`text-xs ${
-                      calculateProfitLoss(trade) >= 0
-                        ? 'text-green-600'
-                        : 'text-red-500'
-                    }`}
-                  >
-                    ({calculatePercentage(trade).toFixed(2)}%)
-                  </span>
-                </div>
-              ) : (
-                ''
-              )}
-            </td>
-            <td className="border p-2 text-center">
-              {trade.exitPrice ? (
-                <span className="flex items-center justify-center">
-                  <CheckCircleIcon className="w-5 h-5 text-green-500 mr-1" />
-                  Closed
-                </span>
-              ) : (
-                <span className="flex items-center justify-center">
-                  <ClockIcon className="w-5 h-5 text-blue-500 mr-1" />
-                  Open
-                </span>
-              )}
-            </td>
-            <td className="border p-2 text-center">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteTrade(trade.id ?? 0);
-                }}
-                className="text-red-500 hover:text-red-700 p-1 rounded mr-2"
-              >
-                <TrashIcon className="w-5 h-5" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(
-                    `https://www.tradingview.com/chart/?symbol=${trade.symbol}`,
-                    '_blank',
-                  );
-                }}
-                className="text-blue-500 hover:text-blue-700 p-1 rounded"
-              >
-                <ChartBarIcon className="w-5 h-5" />
-              </button>
-            </td>
+    <>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-gray-100 dark:bg-gray-700">
+            <th className="border p-2">Type</th>
+            <th className="border p-2">Symbol</th>
+            <th className="border p-2">Stock $</th>
+            <th className="border p-2">Strike</th>
+            <th className="border p-2">Trade $</th>
+            <th className="border p-2">Expiration</th>
+            <th className="border p-2">Contracts</th>
+            <th className="border p-2">Credit/Debit</th>
+            <th className="border p-2">Exit Price</th>
+            <th className="border p-2">Profit/Loss</th>
+            <th className="border p-2">Status</th>
+            <th className="border p-2">...</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {trades.map((trade: ITrade, index: number) => (
+            <tr
+              key={trade.id}
+              onClick={() => onEditTrade(trade)}
+              className={`cursor-pointer transition-colors duration-150 ease-in-out
+                ${
+                  index % 2 === 0
+                    ? 'bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700'
+                    : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800'
+                }`}
+            >
+              <td className="border p-2 text-center">
+                {formatTradeType(trade.type)}
+              </td>
+              <td className="border p-2 text-center">{trade.symbol}</td>
+              <td className="border p-2 text-right">
+                {latestPrices[trade.symbol]
+                  ? formatCurrency(latestPrices[trade.symbol])
+                  : formatCurrency(trade.stockPrice)}
+              </td>
+              <td className="border p-2 text-right">
+                {formatCurrency(trade.strike)}
+              </td>
+              <td className="border p-2 text-right">
+                {formatCurrency(trade.price)}
+              </td>
+              <td className="border p-2 text-right">
+                <div className="flex items-center justify-end">
+                  <span>{formatDate(trade.expirationDate)}</span>
+                  {isExpirationWarning(trade.expirationDate) && (
+                    <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500 ml-1" />
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {getDaysToExpiration(trade.expirationDate)} days
+                </div>
+              </td>
+              <td className="border p-2 text-right">{trade.contracts}</td>
+              <td className="border p-2 text-right">
+                {formatCreditDebit(
+                  trade.price * trade.contracts * 100,
+                  trade.type,
+                )}
+              </td>
+              <td className="border p-2 text-right">
+                {trade.exitPrice ? formatCurrency(trade.exitPrice) : ''}
+              </td>
+              <td className="border p-2 text-right">
+                {trade.exitPrice ? (
+                  <div className="flex flex-col items-end">
+                    {formatCreditDebit(calculateProfitLoss(trade), trade.type)}
+                    <span
+                      className={`text-xs ${
+                        calculateProfitLoss(trade) >= 0
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }`}
+                    >
+                      ({calculatePercentage(trade).toFixed(2)}%)
+                    </span>
+                  </div>
+                ) : (
+                  ''
+                )}
+              </td>
+              <td className="border p-2 text-center">
+                {trade.exitPrice ? (
+                  <span className="flex items-center justify-center">
+                    <CheckCircleIcon className="w-5 h-5 text-green-500 mr-1" />
+                    Closed
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center">
+                    <ClockIcon className="w-5 h-5 text-blue-500 mr-1" />
+                    Open
+                  </span>
+                )}
+              </td>
+              <td className="border p-2 text-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTradeToDelete(trade);
+                  }}
+                  className="p-1 rounded mr-2"
+                >
+                  <TrashIcon className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(
+                      `https://www.tradingview.com/chart/?symbol=${trade.symbol}`,
+                      '_blank',
+                    );
+                  }}
+                  className="p-1 rounded"
+                >
+                  <ChartBarIcon className="w-5 h-5" />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {tradeToDelete && (
+        <div className="fixed inset-0 flex items-center justify-center">
+          <div className="p-6 rounded-lg shadow-xl bg-white dark:bg-gray-800">
+            <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
+            <p>Are you sure you want to delete this trade?</p>
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => setTradeToDelete(null)}
+                className="px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onDeleteTrade(tradeToDelete.id ?? 0);
+                  setTradeToDelete(null);
+                }}
+                className="px-4 py-2 rounded"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).replace(/\//g, '-');
+  return date
+    .toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    .replace(/\//g, '-');
 }
 
 function formatCurrency(value: number): string {
@@ -176,12 +242,16 @@ function isExpirationWarning(expirationDate: Date): boolean {
 
 function calculateProfitLoss(trade: ITrade): number {
   const multiplier = trade.type.toLowerCase().startsWith('short') ? 1 : -1;
-  return multiplier * (trade.price - (trade.exitPrice ?? 0)) * trade.contracts * 100;
+  return (
+    multiplier * (trade.price - (trade.exitPrice ?? 0)) * trade.contracts * 100
+  );
 }
 
 function calculatePercentage(trade: ITrade): number {
   const multiplier = trade.type.toLowerCase().startsWith('short') ? 1 : -1;
-  return multiplier * ((trade.price - (trade.exitPrice ?? 0)) / trade.price) * 100;
+  return (
+    multiplier * ((trade.price - (trade.exitPrice ?? 0)) / trade.price) * 100
+  );
 }
 
 function formatTradeType(type: string): string {

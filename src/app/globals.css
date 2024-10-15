@@ -66,6 +66,21 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+  .dark input,
+  .dark select,
+  .dark textarea {
+    background-color: #374151; /* bg-gray-700 */
+    color: #ffffff; /* text-white */
+    border-color: #4b5563; /* border-gray-600 */
+  }
+
+  .dark input:focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    border-color: #3b82f6; /* focus:border-blue-500 */
+    box-shadow: 0 0 0 1px #3b82f6; /* focus:ring-1 focus:ring-blue-500 */
+    outline: none;
+  }
 }
 
 @layer base {
