@@ -49,8 +49,9 @@ const tradeSchema = z.object({
   strike: z.number().positive('Strike must be greater than 0'),
   exitPrice: z
     .number()
-    .positive('Exit Price must be greater than 0')
-    .optional(),
+    .min(0, 'Exit Price must be 0 or greater')
+    .optional()
+    .transform(val => val === 0 ? undefined : val),
   expirationDate: z.date(),
   stockPrice: z.number().positive('Stock Price must be greater than 0'),
   contracts: z
@@ -78,8 +79,10 @@ const findNearestStrike = (
 
 export default function AddTradeForm({
   onAddTrade,
+  existingTrade,
 }: {
   onAddTrade: (trade: ITrade) => void;
+  existingTrade?: ITrade;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [symbolError, setSymbolError] = useState<string | null>(null);
@@ -98,7 +101,7 @@ export default function AddTradeForm({
 
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(tradeSchema),
-    defaultValues: DefaultNewTrade,
+    defaultValues: existingTrade || DefaultNewTrade,
     mode: 'onBlur',
   });
 
@@ -162,18 +165,16 @@ export default function AddTradeForm({
 
   const onSubmit = async (data: ITrade) => {
     setIsSubmitting(true);
-    const isValid = await getSymbolFinanceData(data.symbol);
-    if (!isValid) {
-      setIsSubmitting(false);
-      return;
-    }
 
-    const newTrade = {
+    const updatedTrade = {
       ...data,
-      id: Date.now(),
+      id: existingTrade ? existingTrade.id : Date.now(),
+      exitPrice: data.exitPrice === 0 ? undefined : data.exitPrice,
     };
-    onAddTrade(newTrade);
-    form.reset(DefaultNewTrade);
+    onAddTrade(updatedTrade);
+    if (!existingTrade) {
+      form.reset(DefaultNewTrade);
+    }
     setIsSubmitting(false);
   };
 
@@ -244,6 +245,13 @@ export default function AddTradeForm({
   useEffect(() => {
     updateDefaultStrike();
   }, [strikes, symbolFinanceData]);
+
+  useEffect(() => {
+    if (existingTrade) {
+      form.reset(existingTrade);
+      getSymbolFinanceData(existingTrade.symbol);
+    }
+  }, [existingTrade]);
 
   const getDeltaColor = (delta: number, type: TradeType) => {
     const adjustedDelta = isShort ? 1 - Math.abs(delta) : Math.abs(delta);
@@ -506,7 +514,10 @@ export default function AddTradeForm({
                     type="number"
                     placeholder="Exit Price"
                     {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? undefined : Number(e.target.value);
+                      field.onChange(value);
+                    }}
                     disabled={!isSymbolLoaded}
                   />
                 </FormControl>
@@ -520,7 +531,13 @@ export default function AddTradeForm({
             isSubmitting || !!symbolError || isValidating || !isSymbolLoaded
           }
         >
-          {isSubmitting ? 'Adding Trade...' : 'Add Trade'}
+          {isSubmitting
+            ? existingTrade
+              ? 'Updating Trade...'
+              : 'Adding Trade...'
+            : existingTrade
+            ? 'Update Trade'
+            : 'Add Trade'}
         </Button>
 
         {/* Updated footer section */}
@@ -536,6 +553,16 @@ export default function AddTradeForm({
                   {isShort ? 'Net Credit' : 'Net Debit'}: ${premium.toFixed(2)}
                 </p>
               </div>
+            </div>
+            {/* New row for trade summary */}
+            <div className="mt-2 pt-2 border-t border-gray-300">
+              <p className="text-sm font-medium">Trade Summary:</p>
+              <p className="text-sm">
+                {isShort ? 'Selling' : 'Buying'} {numberOfContracts}{' '}
+                {selectedType.toUpperCase()} {form.getValues('symbol')} $
+                {selectedStrike} {selectedExpirationDate.toLocaleDateString()} @
+                ${price.toFixed(2)}
+              </p>
             </div>
           </div>
         )}
