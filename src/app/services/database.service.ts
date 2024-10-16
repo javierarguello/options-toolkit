@@ -23,7 +23,7 @@ export async function updateTrade(
   return mapTradeToITrade(result);
 }
 
-export async function deleteTrade(id: number): Promise<ITrade> {
+export async function deleteTrade(id: bigint): Promise<ITrade> {
   const result = await prisma.trade.delete({
     where: { id },
   });
@@ -38,7 +38,11 @@ export async function getTrade(id: number): Promise<ITrade | null> {
 }
 
 export async function getAllTrades(): Promise<ITrade[]> {
-  const results = await prisma.trade.findMany();
+  const results = await prisma.trade.findMany({
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
   return results.map(mapTradeToITrade);
 }
 

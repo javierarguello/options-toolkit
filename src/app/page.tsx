@@ -36,7 +36,7 @@ export default function Home() {
     setEditingTrade(undefined);
   };
 
-  const handleDeleteTrade = async (id: number) => {
+  const handleDeleteTrade = async (id: bigint) => {
     await deleteTrade(id);
     await loadTrades();
   };
