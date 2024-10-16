@@ -8,6 +8,9 @@ import {
   ExclamationTriangleIcon,
   TrashIcon,
   ChartBarIcon,
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
+  BellAlertIcon, // Add this import
 } from '@heroicons/react/24/solid';
 
 // Add this import for the server function
@@ -23,7 +26,16 @@ export default function OptionTradeTable({
   onEditTrade: (trade: ITrade) => void;
 }) {
   const [tradeToDelete, setTradeToDelete] = useState<ITrade | null>(null);
-  const [latestPrices, setLatestPrices] = useState<Record<string, number>>({});
+  const [lastTradeQuotes, setLastTradeQuotes] = useState<
+    Record<
+      string,
+      {
+        symbol: string;
+        price?: number;
+        earnings?: Date;
+      }
+    >
+  >({});
 
   useEffect(() => {
     const fetchLatestPrices = async () => {
@@ -36,13 +48,12 @@ export default function OptionTradeTable({
           ),
         );
         const quotes = await getYahooFinanceQuotes(symbols);
-        const prices: Record<string, number> = {};
-        quotes.forEach((quote) => {
-          const defaultPrice =
-            trades.find((t) => t.symbol === quote.symbol)?.price ?? 0;
-          prices[quote.symbol] = quote.price ?? defaultPrice;
-        });
-        setLatestPrices(prices);
+        // Convert quotes array to a dictionary
+        const quotesDict = quotes.reduce((acc, quote) => {
+          acc[quote.symbol] = quote;
+          return acc;
+        }, {} as Record<string, { symbol: string; price?: number; earnings?: Date }>);
+        setLastTradeQuotes(quotesDict);
       }
     };
 
@@ -88,7 +99,6 @@ export default function OptionTradeTable({
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-gray-100 dark:bg-gray-700">
-            <th className="border p-2">Type</th>
             <th className="border p-2">Symbol</th>
             <th className="border p-2">Stock $</th>
             <th className="border p-2">Strike</th>
@@ -115,13 +125,16 @@ export default function OptionTradeTable({
                     : 'bg-gray-50 hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-800'
                 }`}
             >
-              <td className="border p-2 text-center">
-                {formatTradeType(trade.type)}
+              <td className="border p-2 text-center flex flex-col items-center">
+                <TradeTypeIcon type={trade.type} />
+                <div className="text-xs">{formatTradeType(trade.type)}</div>
+                <div className="font-bold">{trade.symbol}</div>
               </td>
-              <td className="border p-2 text-center">{trade.symbol}</td>
               <td className="border p-2 text-right">
-                {latestPrices[trade.symbol]
-                  ? formatCurrency(latestPrices[trade.symbol])
+                {lastTradeQuotes[trade.symbol]
+                  ? formatCurrency(
+                      lastTradeQuotes[trade.symbol].price ?? trade.stockPrice,
+                    )
                   : formatCurrency(trade.stockPrice)}
               </td>
               <td className="border p-2 text-right">
@@ -133,8 +146,19 @@ export default function OptionTradeTable({
               <td className="border p-2 text-right">
                 <div className="flex items-center justify-end">
                   <span>{formatDate(trade.expirationDate)}</span>
+                  {lastTradeQuotes[trade.symbol]?.earnings &&
+                    new Date(lastTradeQuotes[trade.symbol].earnings!) <
+                      trade.expirationDate && (
+                      <BellAlertIcon
+                        className="w-5 h-5 text-yellow-500 ml-1"
+                        title="Earnings before expiration"
+                      />
+                    )}
                   {isExpirationWarning(trade.expirationDate) && (
-                    <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500 ml-1" />
+                    <ExclamationTriangleIcon
+                      className="w-5 h-5 text-yellow-500 ml-1"
+                      title="Expiration approaching"
+                    />
                   )}
                 </div>
                 <div className="text-xs text-gray-500">
@@ -175,10 +199,12 @@ export default function OptionTradeTable({
               <td className="border p-2 text-center">
                 {trade.exitPrice ? (
                   <span className="flex items-center justify-center">
-                    <CheckCircleIcon 
+                    <CheckCircleIcon
                       className={`w-5 h-5 ${
-                        calculateProfitLoss(trade) >= 0 ? 'text-green-500' : 'text-red-500'
-                      } mr-1`} 
+                        calculateProfitLoss(trade) >= 0
+                          ? 'text-green-500'
+                          : 'text-red-500'
+                      } mr-1`}
                     />
                   </span>
                 ) : (
@@ -347,4 +373,19 @@ function getDaysToExpiration(expirationDate: Date): number {
 function calculateMinExitPrice(trade: ITrade): number {
   const isShort = trade.type.toLowerCase().startsWith('short');
   return isShort ? trade.price / 2 : trade.price * 2;
+}
+
+function TradeTypeIcon({ type }: { type: string }) {
+  switch (type.toUpperCase()) {
+    case 'SHORT-PUT':
+      return <ArrowTrendingDownIcon className="w-4 h-4 text-red-500" />;
+    case 'SHORT-CALL':
+      return <ArrowTrendingUpIcon className="w-4 h-4 text-green-500" />;
+    case 'LONG-PUT':
+      return <ArrowTrendingDownIcon className="w-4 h-4 text-blue-500" />;
+    case 'LONG-CALL':
+      return <ArrowTrendingUpIcon className="w-4 h-4 text-blue-500" />;
+    default:
+      return null;
+  }
 }

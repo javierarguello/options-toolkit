@@ -8,11 +8,13 @@ export const getYahooFinanceQuotes = async (
   {
     symbol: string;
     price?: number;
+    earnings?: Date;
   }[]
 > => {
   const quotes = await yahooFinance.quote(symbols);
   return quotes.map((quote) => ({
     symbol: quote.symbol,
     price: quote.regularMarketPrice,
+    earnings: quote.earningsTimestampStart,
   }));
 };
