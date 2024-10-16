@@ -27,6 +27,7 @@ import {
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTheme } from 'next-themes';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 const getNextFriday = (): Date => {
   const today = new Date();
@@ -36,7 +37,7 @@ const getNextFriday = (): Date => {
 };
 
 const DefaultNewTrade = {
-  id: Date.now(),
+  id: BigInt(Date.now()),
   expirationDate: getNextFriday(),
   symbol: '',
   contracts: 1,
@@ -46,7 +47,7 @@ const DefaultNewTrade = {
 } as ITrade;
 
 const tradeSchema = z.object({
-  id: z.number().optional(),
+  id: z.bigint().optional(),
   symbol: z.string().min(1, 'Symbol is required'),
   strike: z.number().positive('Strike must be greater than 0'),
   exitPrice: z
@@ -125,7 +126,10 @@ export default function AddTradeForm({
     ((selectedOption?.ask ?? 0) + (selectedOption?.bid ?? 0)) / 2;
   const premium = price * numberOfContracts * 100;
 
-  const getSymbolFinanceData = async (symbol: string) => {
+  const getSymbolFinanceData = async (
+    symbol: string,
+    { prefill }: { prefill: boolean },
+  ) => {
     setIsValidating(true);
     setIsSymbolLoaded(false);
     try {
@@ -148,12 +152,17 @@ export default function AddTradeForm({
 
       setExpirationDates(expirationDates);
 
+      setSymbolError(null);
+      setIsSymbolLoaded(true);
+
+      if (!prefill) {
+        return true;
+      }
+
       if (expirationDates.length > 0) {
         form.setValue('expirationDate', expirationDates[0]);
       }
 
-      setSymbolError(null);
-      setIsSymbolLoaded(true);
       return true;
     } catch (error) {
       console.error('Error validating symbol:', error);
@@ -169,7 +178,7 @@ export default function AddTradeForm({
 
     const updatedTrade = {
       ...data,
-      id: existingTrade ? existingTrade.id : Date.now(),
+      id: existingTrade ? existingTrade.id : BigInt(Date.now()),
       exitPrice: data.exitPrice === 0 ? undefined : data.exitPrice,
     };
     onAddTrade(updatedTrade);
@@ -185,26 +194,42 @@ export default function AddTradeForm({
     );
   };
 
-  const updateSelectedOption = () => {
-    const expirationDate = form.getValues('expirationDate');
-    const strike = form.getValues('strike');
-    const type = form.getValues('type');
+  const updateSelectedOption = ({
+    expirationDate,
+    type,
+    strike,
+    price,
+  }: Partial<
+    Pick<ITrade, 'expirationDate' | 'type' | 'strike' | 'price'>
+  > = {}) => {
+    const selectedExpirationDate =
+      expirationDate ?? form.getValues('expirationDate');
+    const selectedStrike = strike ?? form.getValues('strike');
+    const selectedType = type ?? form.getValues('type');
 
-    if (!symbolFinanceData || !expirationDate || !strike || !type) return;
+    if (
+      !symbolFinanceData ||
+      !selectedExpirationDate ||
+      !selectedStrike ||
+      !selectedType
+    )
+      return;
 
-    const optionType = type.toLowerCase().includes('call') ? 'CALL' : 'PUT';
+    const optionType = selectedType.toLowerCase().includes('call')
+      ? 'CALL'
+      : 'PUT';
 
     const selectedOption = symbolFinanceData.optionChain?.data
       .find(
         (opt) =>
           new Date(opt.expirationDate).setHours(0, 0, 0, 0) ===
-          expirationDate.setHours(0, 0, 0, 0),
+          selectedExpirationDate.setHours(0, 0, 0, 0),
       )
-      ?.options[optionType].find((o) => o.strike === strike);
+      ?.options[optionType].find((o) => o.strike === selectedStrike);
 
     setSelectedOption(selectedOption || null);
 
-    form.setValue('price', Number(optionMark.toFixed(4)) || 0);
+    form.setValue('price', price || Number(optionMark.toFixed(4)) || 0);
   };
 
   const updateStrikes = async () => {
@@ -236,23 +261,52 @@ export default function AddTradeForm({
 
   useEffect(() => {
     updateStrikes();
-    updateSelectedOption();
+    updateSelectedOption(existingTrade);
   }, [selectedExpirationDate, selectedType, symbolFinanceData]);
 
   useEffect(() => {
-    updateSelectedOption();
+    updateSelectedOption(existingTrade);
   }, [selectedStrike]);
 
   useEffect(() => {
-    updateDefaultStrike();
+    if (!existingTrade) {
+      updateDefaultStrike();
+    }
   }, [strikes, symbolFinanceData]);
 
   useEffect(() => {
     if (existingTrade) {
       form.reset(existingTrade);
-      getSymbolFinanceData(existingTrade.symbol);
+      getSymbolFinanceData(existingTrade.symbol, { prefill: false });
     }
   }, [existingTrade]);
+
+  const getTimeUntilExpiration = (expirationDate: Date): string => {
+    const now = new Date();
+    const diffTime = expirationDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 7) {
+      return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+    }
+
+    const months = Math.floor(diffDays / 30);
+    const weeks = Math.floor((diffDays % 30) / 7);
+    const remainingDays = diffDays % 7;
+
+    let result = '';
+    if (months > 0) {
+      result += `${months} month${months !== 1 ? 's' : ''} `;
+    }
+    if (weeks > 0) {
+      result += `${weeks} week${weeks !== 1 ? 's' : ''} `;
+    }
+    if (remainingDays > 0) {
+      result += `${remainingDays} day${remainingDays !== 1 ? 's' : ''}`;
+    }
+
+    return result.trim();
+  };
 
   return (
     <Form {...form}>
@@ -271,7 +325,9 @@ export default function AddTradeForm({
                       {...field}
                       onBlur={async (e) => {
                         field.onBlur();
-                        await getSymbolFinanceData(e.target.value);
+                        await getSymbolFinanceData(e.target.value, {
+                          prefill: true,
+                        });
                       }}
                       disabled={isValidating}
                     />
@@ -521,29 +577,39 @@ export default function AddTradeForm({
 
         {/* Updated footer section */}
         {selectedOption && (
-          <div className="mt-4 p-4 border border-border rounded-md">
-            <p className="text-sm font-medium mb-2">Option Details:</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm">Delta: {probability.toFixed(2)}%</p>
-              </div>
-              <div>
+          <Card className={`mt-4 ${isShort ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
+            <CardHeader>
+              <CardTitle>{isShort ? 'Selling' : 'Buying'} Trade Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2">
                 <p className="text-sm">
-                  {isShort ? 'Net Credit' : 'Net Debit'}: ${premium.toFixed(2)}
+                  {isShort ? 'Selling' : 'Buying'} {numberOfContracts}{' '}
+                  {selectedType.toUpperCase().includes('CALL') ? 'CALL' : 'PUT'} {form.getValues('symbol')}
+                </p>
+                <p className="text-sm">
+                  Strike: ${selectedStrike}
+                </p>
+                <div className="flex flex-col">
+                  <p className="text-sm">
+                    Expiration: {selectedExpirationDate.toLocaleDateString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {getTimeUntilExpiration(selectedExpirationDate)}
+                  </p>
+                </div>
+                <p className="text-sm">
+                  Price: ${price.toFixed(2)}
+                </p>
+                <p className="text-sm">
+                  Prob.: {probability.toFixed(2)}%
+                </p>
+                <p className={`text-sm ${isShort ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {isShort ? 'Net Credit' : 'Net Debit'}: {isShort ? '$' : '($'}{premium.toFixed(2)}{isShort ? '' : ')'}
                 </p>
               </div>
-            </div>
-            {/* New row for trade summary */}
-            <div className="mt-2 pt-2 border-t border-border">
-              <p className="text-sm font-medium">Trade Summary:</p>
-              <p className="text-sm">
-                {isShort ? 'Selling' : 'Buying'} {numberOfContracts}{' '}
-                {selectedType.toUpperCase()} {form.getValues('symbol')} $
-                {selectedStrike} {selectedExpirationDate.toLocaleDateString()} @
-                ${price.toFixed(2)}
-              </p>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
       </form>
     </Form>

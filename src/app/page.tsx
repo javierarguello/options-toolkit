@@ -1,27 +1,44 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import OptionTradeTable from './components/OptionTradeTable';
 import AddTradeForm from './components/AddTradeForm';
 import { ITrade } from './models';
+import {
+  addTrade,
+  updateTrade,
+  deleteTrade,
+  getAllTrades,
+} from './services/database.service';
 
 export default function Home() {
   const [trades, setTrades] = useState<ITrade[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<ITrade | undefined>();
 
-  const addOrUpdateTrade = (trade: ITrade) => {
+  useEffect(() => {
+    loadTrades();
+  }, []);
+
+  const loadTrades = async () => {
+    const loadedTrades = await getAllTrades();
+    setTrades(loadedTrades);
+  };
+
+  const addOrUpdateTrade = async (trade: ITrade) => {
     if (editingTrade) {
-      setTrades(trades.map(t => t.id === editingTrade.id ? { ...trade, id: editingTrade.id } : t));
+      await updateTrade(editingTrade.id as bigint, trade);
     } else {
-      setTrades([...trades, { ...trade, id: Date.now() }]);
+      await addTrade(trade);
     }
+    await loadTrades();
     setIsModalOpen(false);
     setEditingTrade(undefined);
   };
 
-  const deleteTrade = (id: number) => {
-    setTrades(trades.filter((trade) => trade.id !== id));
+  const handleDeleteTrade = async (id: number) => {
+    await deleteTrade(id);
+    await loadTrades();
   };
 
   const closeModal = useCallback(() => {
@@ -37,7 +54,7 @@ export default function Home() {
   return (
     <div className="min-h-screen p-8">
       <main className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Option Trade Tracker</h1>
+        <h1 className="text-3xl font-bold mb-6">Options Trade Tracker</h1>
         <button
           onClick={() => setIsModalOpen(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4 flex items-center"
@@ -60,7 +77,7 @@ export default function Home() {
         </button>
         <OptionTradeTable
           trades={trades}
-          onDeleteTrade={deleteTrade}
+          onDeleteTrade={handleDeleteTrade}
           onEditTrade={editTrade}
         />
         {isModalOpen && (

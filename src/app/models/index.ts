@@ -6,7 +6,7 @@ export enum TradeType {
 }
 
 export interface ITrade {
-  id?: number;
+  id?: bigint;
   symbol: string;
   strike: number;
   price: number;
