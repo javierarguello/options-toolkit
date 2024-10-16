@@ -39,9 +39,14 @@ export async function getTrade(id: number): Promise<ITrade | null> {
 
 export async function getAllTrades(): Promise<ITrade[]> {
   const results = await prisma.trade.findMany({
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy: [
+      {
+        exitPrice: 'desc',
+      },
+      {
+        expirationDate: 'asc',
+      },
+    ],
   });
   return results.map(mapTradeToITrade);
 }
