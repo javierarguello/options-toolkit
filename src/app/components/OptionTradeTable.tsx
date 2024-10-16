@@ -138,7 +138,12 @@ export default function OptionTradeTable({
                   : formatCurrency(trade.stockPrice)}
               </td>
               <td className="border p-2 text-right">
-                {formatCurrency(trade.strike)}
+                <div>{formatCurrency(trade.strike)}</div>
+                {trade.type.toLowerCase().startsWith('short') && (
+                  <div className="text-xs text-gray-500">
+                    BE: {formatCurrency(calculateBreakeven(trade))}
+                  </div>
+                )}
               </td>
               <td className="border p-2 text-right">
                 {formatCurrency(trade.price)}
@@ -388,4 +393,13 @@ function TradeTypeIcon({ type }: { type: string }) {
     default:
       return null;
   }
+}
+
+function calculateBreakeven(trade: ITrade): number {
+  if (trade.type.toLowerCase() === 'short-put') {
+    return trade.strike - trade.price;
+  } else if (trade.type.toLowerCase() === 'short-call') {
+    return trade.strike + trade.price;
+  }
+  return 0;
 }
