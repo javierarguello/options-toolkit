@@ -96,7 +96,7 @@ export default function OptionTradeTable({
         </div>
       </div>
 
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse rounded-lg overflow-hidden">
         <thead>
           <tr className="bg-gray-100 dark:bg-gray-700">
             <th className="border p-2">Symbol</th>
