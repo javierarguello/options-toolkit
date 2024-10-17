@@ -135,6 +135,9 @@ export default function OptionTradeTable({
                       lastTradeQuotes[trade.symbol].price ?? trade.stockPrice,
                     )
                   : formatCurrency(trade.stockPrice)}
+                <div className={`text-xs ${calculateStrikePercentage(trade, lastTradeQuotes[trade.symbol]?.price).colorClass}`}>
+                  {calculateStrikePercentage(trade, lastTradeQuotes[trade.symbol]?.price).percentage}
+                </div>
               </td>
               <td className="border p-2 text-right">
                 <div>{formatCurrency(trade.strike)}</div>
@@ -406,4 +409,14 @@ function calculateBreakeven(trade: ITrade): number {
     return trade.strike + trade.price;
   }
   return 0;
+}
+
+function calculateStrikePercentage(trade: ITrade, currentPrice?: number): { percentage: string; colorClass: string } {
+  const price = currentPrice ?? trade.stockPrice;
+  const percentage = ((trade.strike - price) / price) * 100;
+  const formattedPercentage = Math.abs(percentage).toFixed(2);
+  
+  const colorClass = Math.abs(percentage) < 3 ? 'text-red-500' : 'text-gray-500';
+  
+  return { percentage: `${formattedPercentage}%`, colorClass };
 }

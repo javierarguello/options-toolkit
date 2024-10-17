@@ -18,3 +18,24 @@ export const getYahooFinanceQuotes = async (
     earnings: quote.earningsTimestampStart,
   }));
 };
+
+export const getVIXPriceHistory = async (): Promise<
+  {
+    date: Date;
+    price: number;
+  }[]
+> => {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 14); // 2 weeks ago
+
+  const result = await yahooFinance.historical('^VIX', {
+    period1: startDate,
+    period2: endDate,
+  });
+
+  return result.map((item) => ({
+    date: item.date,
+    price: item.close,
+  }));
+};
