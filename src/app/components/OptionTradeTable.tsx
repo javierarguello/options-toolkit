@@ -106,7 +106,6 @@ export default function OptionTradeTable({
             <th className="border p-2">Expiration</th>
             <th className="border p-2">Contracts</th>
             <th className="border p-2">Credit/Debit</th>
-            <th className="border p-2">Min. Exit $</th>
             <th className="border p-2">Exit $</th>
             <th className="border p-2">Profit/Loss</th>
             <th className="border p-2">Status</th>
@@ -178,10 +177,16 @@ export default function OptionTradeTable({
                 )}
               </td>
               <td className="border p-2 text-right">
-                {formatCurrency(calculateMinExitPrice(trade))}
-              </td>
-              <td className="border p-2 text-right">
-                {trade.exitPrice ? formatCurrency(trade.exitPrice) : ''}
+                {trade.exitPrice ? (
+                  formatCurrency(trade.exitPrice)
+                ) : (
+                  <div>
+                    <div>--</div>
+                    <div className="text-xs text-gray-500">
+                      Min: {formatCurrency(calculateMinExitPrice(trade))}
+                    </div>
+                  </div>
+                )}
               </td>
               <td className="border p-2 text-right">
                 {trade.exitPrice ? (
@@ -209,13 +214,12 @@ export default function OptionTradeTable({
                         calculateProfitLoss(trade) >= 0
                           ? 'text-green-500'
                           : 'text-red-500'
-                      } mr-1`}
+                      }`}
                     />
                   </span>
                 ) : (
                   <span className="flex items-center justify-center">
-                    <ClockIcon className="w-5 h-5 text-blue-500 mr-1" />
-                    Open
+                    <ClockIcon className="w-5 h-5 text-blue-500" />
                   </span>
                 )}
               </td>
